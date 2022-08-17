@@ -42,20 +42,20 @@ namespace jep
 	enum text_justification { LL, UL, UR, LR };
 	enum render_type { NORMAL, TEXT, ABSOLUTE, UNDEFINED_RENDER_TYPE };
 
-	const float getLineAngle(glm::vec2 first, glm::vec2 second, bool right_handed);
-	const glm::vec4 rotatePointAroundOrigin(const glm::vec4 &point, const glm::vec4 &origin, const float degrees, const glm::vec3 &axis);
+	float getLineAngle(glm::vec2 first, glm::vec2 second, bool right_handed);
+	glm::vec4 rotatePointAroundOrigin(const glm::vec4 &point, const glm::vec4 &origin, const float degrees, const glm::vec3 &axis);
 	void loadTexture(const char* imagepath, GLuint &textureID);
 	void loadBMP(const char* imagepath, GLuint &textureID);
 	void loadTGA(const char* imagepath, GLuint &textureID);
 	void errorCallback(int error, const char* description);
 
-	const std::vector<float> extractFloats(const string &s);
-	const std::vector< std::vector<int> > extractFaceSequence(const string &s);
-	const std::vector<mesh_data> generateMeshes(const char* file_path);
-	const map<string, std::shared_ptr<material_data> > generateMaterials(const char* file_path, std::shared_ptr<texture_handler> &textures, const std::shared_ptr<ogl_context> &context);
-	const DATA_TYPE getDataType(const string &line);
-	const string extractName(const string &line);
-	const bool floatsAreEqual(float first, float second);
+	std::vector<float> extractFloats(const string &s);
+	std::vector< std::vector<int> > extractFaceSequence(const string &s);
+	std::vector<mesh_data> generateMeshes(const char* file_path);
+	map<string, std::shared_ptr<material_data> > generateMaterials(const char* file_path, std::shared_ptr<texture_handler> &textures, const std::shared_ptr<ogl_context> &context);
+	DATA_TYPE getDataType(const string &line);
+	string extractName(const string &line);
+	bool floatsAreEqual(float first, float second);
 
 	//ogl_context initializes glew, creates a glfw window, generates programs using shaders provided, 
 	//and stores program and texture GLuints to be used by other objects
@@ -108,11 +108,11 @@ namespace jep
 		void setBackgroundColor(glm::vec4 color) { glClearColor(color.x, color.y, color.z, color.w); background_color = color; }
 
 	private:
-		GLuint createShader(std::string file, GLenum type, bool raw_string);
-		GLuint createProgram(std::string vert_file, std::string frag_file, bool raw_string_shaders);
+		static GLuint createShader(std::string file, GLenum type, bool raw_string);
+		static GLuint createProgram(std::string vert_file, std::string frag_file, bool raw_string_shaders);
 
-		GLint element_color_ID;
-		glm::vec4 background_color;
+		GLint element_color_ID{};
+		glm::vec4 background_color{};
 		GLFWwindow* window;
 		bool errors = true;
 		int window_height, window_width;
@@ -155,19 +155,19 @@ namespace jep
 		virtual void updateCamera();
 
 	private:
-		glm::mat4 view_matrix;
-		glm::mat4 projection_matrix;
-		glm::mat4 previous_model_matrix;
-		glm::mat4 previous_view_matrix;
-		glm::mat4 previous_projection_matrix;
-		glm::mat4 aspect_scale_matrix;
+		glm::mat4 view_matrix{};
+		glm::mat4 projection_matrix{};
+		glm::mat4 previous_model_matrix{};
+		glm::mat4 previous_view_matrix{};
+		glm::mat4 previous_projection_matrix{};
+		glm::mat4 aspect_scale_matrix{};
 		std::shared_ptr<key_handler> keys;
 		float aspect_scale;
 
 		render_type current_render_type;
 
-		glm::vec3 camera_focus;
-		glm::vec3 camera_position;
+		glm::vec3 camera_focus{};
+		glm::vec3 camera_position{};
 
 		float camera_fov;
 	};
@@ -575,33 +575,33 @@ namespace jep
 		glm::vec2 getUpperRight() const;
 
 	private:
-		void setPageData();
+		static void setPageData();
 		void setVisible();
 		string raw_text;
-		glm::vec4 text_color;
-		glm::mat4 text_scale_matrix;
-		glm::mat4 text_translation_matrix;
+		glm::vec4 text_color{};
+		glm::mat4 text_scale_matrix{};
+		glm::mat4 text_translation_matrix{};
 
 		map <int, std::vector<std::shared_ptr<text_character> > >visible_lines;
 		map <int, std::vector< std::shared_ptr<text_character> >::iterator > page_map;
-		float array_padding;
+		float array_padding{};
 		text_justification justification;
 		//TODO move lines/rectangles to ogl_tools
 		//std::vector< std::shared_ptr<line> > lines;
 
 		GLchar* text_shader_ID;
 		GLchar* text_color_shader_ID;
-		GLchar* transparent_color_shader_ID;
+		GLchar* transparent_color_shader_ID{};
 
-		glm::vec2 upper_left, lower_right;
+		glm::vec2 upper_left{}, lower_right{};
 
 		bool x_bound, y_bound;
 		float box_width, box_height;
 	
 		std::vector< std::pair<std::shared_ptr<ogl_data>, glm::mat4> > character_array;
 
-		int line_count;
-		int character_count;
+		int line_count{};
+		int character_count{};
 	};
 
 	class text_character
@@ -695,12 +695,12 @@ namespace jep
 		void draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera, bool absolute = false) const;
 
 	private:
-		glm::vec4 p1;
-		glm::vec4 p2;
+		glm::vec4 p1{};
+		glm::vec4 p2{};
 
 		std::shared_ptr<GLuint> VBO;
 		std::shared_ptr<GLuint> VAO;
-		glm::vec4 color;
+		glm::vec4 color{};
 	};
 
 	class rectangle
@@ -718,7 +718,7 @@ namespace jep
 		std::vector<float> vec_vertices;
 		std::shared_ptr<GLuint> VBO;
 		std::shared_ptr<GLuint> VAO;
-		glm::vec4 color;
+		glm::vec4 color{};
 	};
 
 	class vertex_data
@@ -807,14 +807,14 @@ namespace jep
 		void addVPData(const std::vector<float> &data) { all_vp_data.insert(all_vp_data.end(), data.begin(), data.end()); }
 		void addFace(const std::vector<vertex_data> &data);
 		void addTangentBitangent(const std::vector<glm::vec3> &tb);
-		std::vector<glm::vec3> calcTangentBitangent(const std::vector<vertex_data> &face_data);
+		static std::vector<glm::vec3> calcTangentBitangent(const std::vector<vertex_data> &face_data);
 
 		const int getInterleaveStride() const { return interleave_stride; }
 		const int getInterleaveVTOffset() const { return interleave_vt_offset; }
 		const int getInterleaveVNOffset() const { return interleave_vn_offset; }
-		const std::vector<float> getInterleaveData() const;
-		const std::vector<float> getIndexedVertexData(std::vector<unsigned short> &indices) const;
-		const std::vector<float> getIndexedVertexData() const;
+		std::vector<float> getInterleaveData() const;
+		std::vector<float> getIndexedVertexData(std::vector<unsigned short> &indices) const;
+		std::vector<float> getIndexedVertexData() const;
 		const std::vector<unsigned short> getElementIndex() const { return element_index; }
 
 		//returns # of floats per vertex type
@@ -956,7 +956,7 @@ namespace jep
 		void setData(DATA_TYPE dt, std::vector<float> floats) { data[dt] = floats; }
 
 		const string getMaterialName() const { return material_name; }
-		const std::vector<float> getData(DATA_TYPE dt) const;
+		std::vector<float> getData(DATA_TYPE dt) const;
 
 		void setMapStatus(const string &map_handle, bool b);
 		void setBumpValue(const float &f) { bump_value = glm::clamp(f, 0.0f, 1.0f); }

@@ -1,66 +1,58 @@
 #include "ogl_tools.h"
 #include <algorithm>
+#include <utility>
 
 namespace jep
 {
-	const bool floatsAreEqual(float first, float second)
-	{
+	bool floatsAreEqual(float first, float second) {
 		return abs(second - first) < .00000001f;
 	}
 
-	void errorCallback(int error, const char* description)
-	{
+	void errorCallback(int error, const char* description) {
 		puts(description);
 	}
 
-	const float getLineAngle(glm::vec2 first, glm::vec2 second, bool right_handed)
-	{
-		if (right_handed)
-		{
+	float getLineAngle(glm::vec2 first, glm::vec2 second, bool right_handed) {
+		if (right_handed) {
 			first.x *= -1.0f;
 			second.x *= -1.0f;
 		}
 
 		//assumes line is going from first to second
 		//angle returned is counter-clockwise offset from horizontal axis to the right
-		if (floatsAreEqual(first.x, second.x))
-		{
+		if (floatsAreEqual(first.x, second.x)) {
 			if (first.y < second.y)
 				return 90.0f;
 
 			else return 270.0f;
 		}
 
-		if (floatsAreEqual(first.y, second.y))
-		{
-			if (first.x < second.x)
-				return 0.0f;
-
-			else return 180.0f;
+		if (floatsAreEqual(first.y, second.y)) {
+            if (first.x < second.x) {
+                return 0.0f;
+            } else {
+                return 180.0f;
+            }
 		}
 
 		float tangent = ((second.y - first.y) / (second.x - first.x));
 		float pi = 3.14159265;
 		float angle = atan(abs(tangent)) * (180 / pi);
 
-		if (tangent < 0)
-		{
-			if (first.x < second.x)
-				return 360.0f - angle;
-
-			else return 180.0f - angle;
-		}
-
-		else
-		{
-			if (first.x < second.x)
-				return angle;
-
-			else return 180.0f + angle;
-		}
+		if (tangent < 0) {
+            if (first.x < second.x) {
+                return 360.0f - angle;
+            } else {
+                return 180.0f - angle;
+            }
+		} else if (first.x < second.x) {
+            return angle;
+        } else {
+            return 180.0f + angle;
+        }
 	}
 
-	const glm::vec4 rotatePointAroundOrigin(const glm::vec4 &point, const glm::vec4 &origin, const float degrees, const glm::vec3 &axis)
+	glm::vec4 rotatePointAroundOrigin(const glm::vec4 &point, const glm::vec4 &origin, const float degrees, const glm::vec3 &axis)
 	{
 		glm::vec4 delta_vec = point - origin;
 		delta_vec.w = 1.0f;
@@ -194,12 +186,12 @@ namespace jep
 		image_descriptor = *(char*)&(header[17]);
 
 		//advances fread buffer if an offset is indicated
-		unsigned char* data_offset = new unsigned char[first_map_index];
+		auto* data_offset = new unsigned char[first_map_index];
 		fread(data_offset, 1, first_map_index, tif_file);
 
 		unsigned int image_size = int(width) * int(height) * 3;
 
-		unsigned char* color_map = new unsigned char[image_size];
+		auto* color_map = new unsigned char[image_size];
 		fread(color_map, 1, image_size, tif_file);
 
 		//create opengl texture
@@ -217,26 +209,25 @@ namespace jep
 		fclose(tif_file);
 	}
 
-	ogl_context::ogl_context(std::string title, std::string vert_file, std::string frag_file,
-		int width, int height, bool raw_string_shaders)
-	{
-		try
-		{
+	ogl_context::ogl_context(
+            std::string title, 
+            std::string vert_file, 
+            std::string frag_file,
+            int width, 
+            int height, 
+            bool raw_string_shaders) {
+		try {
 			window_width = width;
 			window_height = height;
 			aspect_ratio = (float)window_width / (float)window_height;
 			errors = false;
-			window_title = title;
+			window_title = std::move(title);
 
 			//initialize GLFW
-			if (!glfwInit())
-			{
-				display_errors.push_back("glfw failed to initialize");
+			if (!glfwInit()) {
+				display_errors.emplace_back("glfw failed to initialize");
 				errors = true;
-			}
-			//version control/create window
-			else
-			{
+			} else {
 				GLFWerrorfun error_callback = errorCallback;
 				glfwSetErrorCallback(error_callback);
 				std::cout << "initializing window" << std::endl;
@@ -245,40 +236,35 @@ namespace jep
 				glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
 				glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-				window = glfwCreateWindow(width, height, &window_title[0], NULL, NULL);
+				window = glfwCreateWindow(width, height, &window_title[0], nullptr, nullptr);
 
-				if (window == NULL)
-				{
+				if (window == nullptr) {
 					const char* description;
 					glfwGetError(&description);
-					display_errors.push_back(description);
+					display_errors.emplace_back(description);
 					errors = true;
 				}
 			}
 
 			//test window
-			if (!errors && window == NULL)
-			{
-				display_errors.push_back("window returned NULL");
+			if (!errors && window == nullptr) {
+				display_errors.emplace_back("window returned nullptr");
 				errors = true;
 			}
 
 			//make context current/initialize glew
-			if (!errors)
-			{
+			if (!errors) {
 				glfwMakeContextCurrent(window);
 
 				glewExperimental = true;
 				GLenum error = glewInit();
-				if (error != GLEW_OK)
-				{
-					display_errors.push_back("glew failed to initialize");
+				if (error != GLEW_OK) {
+					display_errors.emplace_back("glew failed to initialize");
 					errors = true;
 				}
 			}
 
-			if (!errors)
-			{
+			if (!errors) {
 				//TODO make values of each ID variable
 				std::cout << "creating program" << std::endl;
 				program_ID = createProgram(vert_file, frag_file, raw_string_shaders);
@@ -291,76 +277,63 @@ namespace jep
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			}
 
-			//glEnable(GL_CULL_FACE);
-
-			//create vertex buffer object, set clear color
-			if (!errors)
-			{
+			if (!errors) {
 				std::cout << "setting background" << std::endl;
 				background_color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
 				setBackgroundColor(background_color);
 			}
 
-			if (errors)
-			{
+			if (errors) {
 				printErrors();
 				throw ogl_context_exception("context creation failed");
 			}
-		}
-		catch (std::exception e)
-		{
+		} catch (std::exception& e) {
 			printErrors();
 			throw ogl_context_exception(e.what());
 		}
 	}
 
-	ogl_context::~ogl_context()
-	{
+	ogl_context::~ogl_context() {
 		//cleanup OpenGL/GLFW
 		glfwDestroyWindow(window);
 		glfwTerminate();
 	}
 
-	void ogl_context::printErrors()
-	{
-		for (std::vector<std::string>::const_iterator i = display_errors.begin(); i != display_errors.end(); i++)
-			std::cout << *i << std::endl;
+	void ogl_context::printErrors() {
+        for (const auto & display_error : display_errors) {
+            std::cout << display_error << std::endl;
+        }
 	}
 
-	GLuint ogl_context::createShader(std::string file, GLenum type, bool raw_string)
-	{
+	GLuint ogl_context::createShader(std::string file, GLenum type, bool raw_string) {
 		GLuint target_ID = glCreateShader(type);
 
 		std::string code_string;
 
-		if (raw_string)
-			code_string = file;
-
-		else
-		{
-			//convert glsl file into a string
-			std::ifstream shader_file;
-			shader_file.open(file, std::ifstream::in);
-			while (shader_file.good())
-			{
-				std::string line;
-				std::getline(shader_file, line);
-				code_string += line + '\n';
-			}
-		}
+        if (raw_string) {
+            code_string = file;
+        } else {
+            //convert glsl file into a string
+            std::ifstream shader_file;
+            shader_file.open(file, std::ifstream::in);
+            while (shader_file.good()) {
+                std::string line;
+                std::getline(shader_file, line);
+                code_string += line + '\n';
+            }
+        }
 
 		//create const char* from string of code
 		const char* code_char = code_string.c_str();
 
 		//compile shader
-		glShaderSource(target_ID, 1, &code_char, NULL);
+		glShaderSource(target_ID, 1, &code_char, nullptr);
 		glCompileShader(target_ID);
 
 		//test compilation, return success/failure
 		GLint status;
 		glGetShaderiv(target_ID, GL_COMPILE_STATUS, &status);
-		if (status == GL_FALSE)
-		{
+		if (status == GL_FALSE) {
 			std::string error;
 			error += file;
 			error += " failed to compile: ";
@@ -369,7 +342,7 @@ namespace jep
 			glGetShaderiv(target_ID, GL_INFO_LOG_LENGTH, &log_length);
 			std::vector<char> info_log(log_length + 1);
 
-			glGetShaderInfoLog(target_ID, log_length, NULL, &info_log[0]);
+			glGetShaderInfoLog(target_ID, log_length, nullptr, &info_log[0]);
 
 			for (std::vector<char>::const_iterator i = info_log.begin(); i != info_log.end(); i++)
 				error += *i;
@@ -382,8 +355,7 @@ namespace jep
 		return target_ID;
 	}
 
-	GLuint ogl_context::createProgram(std::string vert_file, std::string frag_file, bool raw_string_shaders)
-	{
+	GLuint ogl_context::createProgram(std::string vert_file, std::string frag_file, bool raw_string_shaders) {
 		//create program handle
 		std::cout << "creating shaders" << std::endl;
 		GLuint program_ID = glCreateProgram();
@@ -402,18 +374,18 @@ namespace jep
 		GLint status;
 		std::cout << "getting link status" << std::endl;
 		glGetProgramiv(program_ID, GL_LINK_STATUS, &status);
-		if (status == GL_FALSE)
-		{
+		if (status == GL_FALSE) {
 			std::string error = "program failed to link: ";
 
 			GLint log_length;
 			std::cout << "getting log length" << std::endl;
 			glGetProgramiv(program_ID, GL_INFO_LOG_LENGTH, &log_length);
 			std::vector<char> info_log(log_length + 1);
-			glGetProgramInfoLog(program_ID, log_length, NULL, &info_log[0]);
+			glGetProgramInfoLog(program_ID, log_length, nullptr, &info_log[0]);
 
-			for (std::vector<char>::iterator i = info_log.begin(); i != info_log.end(); i++)
-				error += *i;
+            for (char &i: info_log) {
+                error += i;
+            }
 
 			std::cout << error << std::endl;
 			return 0;
@@ -427,35 +399,28 @@ namespace jep
 		return program_ID;
 	}
 
-    void ogl_context::setUniform1i(const char* name, int value)
-    {
+    void ogl_context::setUniform1i(const char* name, int value) {
         glUniform1i(getShaderGLint(name), GLint(value));
     }
 
-    void ogl_context::setUniform3fv(const char* name, int count, const vec3& value)
-    {
+    void ogl_context::setUniform3fv(const char* name, int count, const vec3& value) {
         glUniform3fv(getShaderGLint(name), GLint(count), &value[0]);
     }
 
-    void ogl_context::setUniform4fv(const char* name, int count, const vec4& value)
-    {
+    void ogl_context::setUniform4fv(const char* name, int count, const vec4& value) {
         glUniform4fv(getShaderGLint(name), GLint(count), &value[0]);
     }
 
-    void ogl_context::setUniformMatrix4fv(const char* name, int count, bool transpose, const mat4& matrix)
-    {
+    void ogl_context::setUniformMatrix4fv(const char* name, int count, bool transpose, const mat4& matrix) {
         glUniformMatrix4fv(getShaderGLint(name), GLint(count), transpose, &matrix[0][0]);
     }
 
-    void ogl_context::setUniform1f(const char* name, float value)
-    {
+    void ogl_context::setUniform1f(const char* name, float value) {
         glUniform1f(getShaderGLint(name), GLfloat(value));
     }
 
-	GLint ogl_context::getShaderGLint(const char* name)
-	{
-		if (glint_map.find(name) == glint_map.end())
-		{
+	GLint ogl_context::getShaderGLint(const char* name) {
+		if (glint_map.find(name) == glint_map.end()) {
 			std::shared_ptr<GLint> GLintID(new GLint(glGetUniformLocation(program_ID, name)));
 			glint_map.insert(std::pair<string, std::shared_ptr<GLint> >(name, GLintID));		
 		}
@@ -463,8 +428,12 @@ namespace jep
 		return *(glint_map.at(name));
 	}
 
-	ogl_camera::ogl_camera(const std::shared_ptr<key_handler> &kh, const std::shared_ptr<ogl_context> &context, const glm::vec3 &position, const glm::vec3 &focus, float fov)
-	{
+	ogl_camera::ogl_camera(
+            const std::shared_ptr<key_handler> &kh,
+            const std::shared_ptr<ogl_context> &context,
+            const glm::vec3 &position,
+            const glm::vec3 &focus,
+            float fov) {
 		camera_fov = fov;
 		camera_focus = focus;
 		camera_position = position;
@@ -481,20 +450,18 @@ namespace jep
 		aspect_scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f / context->getAspectRatio(), 1.0f, 1.0f));
 	}
 
-	void ogl_camera::updateCamera()
-	{
-		glm::mat4 view_matrix = glm::lookAt(
+	void ogl_camera::updateCamera() {
+		glm::mat4 viewMatrix = glm::lookAt(
 			glm::vec3(getPosition().x, getPosition().y, getPosition().z),	//position of camera
 			glm::vec3(getFocus().x, getFocus().y, getFocus().z),		//position of focal point
 			glm::vec3(0, 1, 0));
 
-		setViewMatrix(view_matrix);
+		setViewMatrix(viewMatrix);
 	};
 
-	void ogl_camera::setMVP(const std::shared_ptr<ogl_context> &context, const glm::mat4 &model_matrix, const render_type &rt)
-	{
-
-		if (current_render_type == rt && model_matrix == previous_model_matrix && previous_view_matrix == view_matrix && previous_projection_matrix == projection_matrix) {
+	void ogl_camera::setMVP(const std::shared_ptr<ogl_context> &context, const glm::mat4 &model_matrix, const render_type &rt) {
+		if (current_render_type == rt && model_matrix == previous_model_matrix && previous_view_matrix == view_matrix &&
+        previous_projection_matrix == projection_matrix) {
 			return;
 		}
 
@@ -502,8 +469,7 @@ namespace jep
 		glm::mat4 MVP;
 		glm::mat3 MV;
 
-		switch(current_render_type)
-		{
+		switch(current_render_type) {
 		case NORMAL:
 			previous_model_matrix = model_matrix;
 			previous_view_matrix = view_matrix;
@@ -519,14 +485,6 @@ namespace jep
 			break;
 
 		case TEXT: //aspect ratio is adjusted in within the code, since aspect ratio adjustments need to be made before the objects are translated
-			previous_model_matrix = model_matrix;
-			previous_view_matrix = view_matrix;
-			MVP = model_matrix;
-			//MVP = model_matrix * aspect_scale_matrix;
-			glUniform1i(context->getShaderGLint("use_lighting"), false);
-			glUniformMatrix4fv(context->getShaderGLint("MVP"), 1, GL_FALSE, &MVP[0][0]);
-			break;
-
 		case ABSOLUTE:
 			//aspect ratio is adjusted in within the code, since aspect ratio adjustments need to be made before the objects are translated
 			previous_model_matrix = model_matrix;
@@ -548,8 +506,7 @@ namespace jep
 		}
 	}
 
-	void ogl_camera::adjustFocalLength(float degree)
-	{
+	void ogl_camera::adjustFocalLength(float degree) {
 		glm::vec3 focal_vector(camera_focus - camera_position);
 		focal_vector *= degree;
 		camera_focus = camera_position + focal_vector;
@@ -560,7 +517,7 @@ namespace jep
 	/*
 	void ogl_camera_rigged::update()
 	{
-		if (target != NULL)
+		if (target != nullptr)
 		{
 			glm::vec3 origin = glm::vec3(target->getOrigin());
 			glm::vec3 camera_focus = origin + focal_offset;
@@ -576,8 +533,7 @@ namespace jep
 	}
 	*/
 
-	void ogl_camera_free::stepCamera(float dist)
-	{
+	void ogl_camera_free::stepCamera(float dist) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
@@ -601,8 +557,7 @@ namespace jep
 		setPosition(glm::vec3(camera_location.x, camera_location.y, camera_location.z));
 	}
 
-	void ogl_camera_free::strafeCamera(float dist)
-	{
+	void ogl_camera_free::strafeCamera(float dist) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
@@ -627,8 +582,7 @@ namespace jep
 		setPosition(glm::vec3(camera_location.x, camera_location.y, camera_location.z));
 	}
 
-	void ogl_camera_free::rotateCamera(float degrees)
-	{
+	void ogl_camera_free::rotateCamera(float degrees) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
@@ -646,13 +600,11 @@ namespace jep
 		setFocus(glm::vec3(camera_focus.x, camera_focus.y, camera_focus.z));
 	}
 
-	void ogl_camera_free::tiltCamera(float degrees)
-	{
+	void ogl_camera_free::tiltCamera(float degrees) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
-		if (abs(camera_tilt + degrees) < 90.0f)
-		{
+		if (abs(camera_tilt + degrees) < 90.0f) {
 			glm::vec4 axis_point = rotatePointAroundOrigin(
 				camera_focus, camera_location, -90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 			glm::vec3 axis(axis_point.x - camera_location.x, 0.0f, axis_point.z - camera_location.z);
@@ -666,136 +618,127 @@ namespace jep
 		}
 	}
 
-	void ogl_camera_free::move(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_free::move(signed short n) {
+		if (n == 0) {
 			move_forward = false;
 			move_backward = false;
 			return;
-		}
-
-		else if (n < 0)
-			move_forward = false;
-
-		else if (n > 0)
-			move_forward = true;
+		} else if (n < 0) {
+            move_forward = false;
+        } else if (n > 0) {
+            move_forward = true;
+        }
 
 		move_backward = !move_forward;
 
-		if (print_movement)
-			cout << "move: " << n << endl;
+        if (print_movement) {
+            cout << "move: " << n << endl;
+        }
 	}
 
-	void ogl_camera_free::rotate(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_free::rotate(signed short n) {
+		if (n == 0) {
 			rotate_left = false;
 			rotate_right = false;
 			return;
-		}
-
-		else if (n < 0)
-			rotate_left = true;
-
-		else if (n > 0)
-			rotate_left = false;
+		} else if (n < 0) {
+            rotate_left = true;
+        } else if (n > 0) {
+            rotate_left = false;
+        }
 
 		rotate_right = !rotate_left;
 
-		if (print_movement)
-			cout << "rotate: " << n << endl;
+        if (print_movement) {
+            cout << "rotate: " << n << endl;
+        }
 	}
 
-	void ogl_camera_free::tilt(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_free::tilt(signed short n) {
+		if (n == 0) {
 			tilt_up = false;
 			tilt_down = false;
 			return;
-		}
-
-		else if (n < 0)
-			tilt_up = false;
-
-		else if (n > 0)
-			tilt_up = true;
+		} else if (n < 0) {
+            tilt_up = false;
+        } else if (n > 0) {
+            tilt_up = true;
+        }
 
 		tilt_down = !tilt_up;
 
-		if (print_movement)
-			cout << "tilt: " << n << endl;
+        if (print_movement) {
+            cout << "tilt: " << n << endl;
+        }
 	}
 
-	void ogl_camera_free::strafe(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_free::strafe(signed short n) {
+		if (n == 0) {
 			strafe_left = false;
 			strafe_right = false;
 			return;
-		}
-
-		else if (n < 0)
-			strafe_left = true;
-
-		else if (n > 0)
-			strafe_left = false;
+		} else if (n < 0) {
+            strafe_left = true;
+        } else if (n > 0) {
+            strafe_left = false;
+        }
 
 		strafe_right = !strafe_left;
 
-		if (print_movement)
-			cout << "strafe: " << n << endl;
+        if (print_movement) {
+            cout << "strafe: " << n << endl;
+        }
 	}
 
-	void ogl_camera_free::updateCamera()
-	{
-		if (getKeys()->checkPress(GLFW_KEY_A) || getKeys()->checkPress(GLFW_KEY_D))
-			getKeys()->checkPress(GLFW_KEY_D) ? strafe(1) : strafe(-1);
+	void ogl_camera_free::updateCamera() {
+        if (getKeys()->checkPress(GLFW_KEY_A) || getKeys()->checkPress(GLFW_KEY_D)) {
+            getKeys()->checkPress(GLFW_KEY_D) ? strafe(1) : strafe(-1);
+        } else {
+            strafe(0);
+        }
 
-		else strafe(0);
+        if (getKeys()->checkPress(GLFW_KEY_S) || getKeys()->checkPress(GLFW_KEY_W)) {
+            getKeys()->checkPress(GLFW_KEY_S) ? move(-1) : move(1);
+        } else {
+            move(0);
+        }
 
-		if (getKeys()->checkPress(GLFW_KEY_S) || getKeys()->checkPress(GLFW_KEY_W))
-			getKeys()->checkPress(GLFW_KEY_S) ? move(-1) : move(1);
+        if (getKeys()->checkPress(GLFW_KEY_UP) || getKeys()->checkPress(GLFW_KEY_DOWN)) {
+            getKeys()->checkPress(GLFW_KEY_UP) ? tilt(1) : tilt(-1);
+        } else {
+            tilt(0);
+        }
 
-		else move(0);
-
-		if (getKeys()->checkPress(GLFW_KEY_UP) || getKeys()->checkPress(GLFW_KEY_DOWN))
-			getKeys()->checkPress(GLFW_KEY_UP) ? tilt(1) : tilt(-1);
-
-		else tilt(0);
-
-		if (getKeys()->checkPress(GLFW_KEY_LEFT) || getKeys()->checkPress(GLFW_KEY_RIGHT))
-			getKeys()->checkPress(GLFW_KEY_LEFT) ? rotate(1) : rotate(-1);
-
-		else rotate(0);
+        if (getKeys()->checkPress(GLFW_KEY_LEFT) || getKeys()->checkPress(GLFW_KEY_RIGHT)) {
+            getKeys()->checkPress(GLFW_KEY_LEFT) ? rotate(1) : rotate(-1);
+        } else {
+            rotate(0);
+        }
 
 
-		if (move_forward)
-			stepCamera(step_distance);
+        if (move_forward) {
+            stepCamera(step_distance);
+        } else if (move_backward) {
+            stepCamera(step_distance * -1.0f);
+        }
 
-		else if (move_backward)
-			stepCamera(step_distance * -1.0f);
+        if (rotate_left) {
+            rotateCamera(rotate_angle * -1.0f);
+        } else if (rotate_right) {
+            rotateCamera(rotate_angle);
+        }
 
-		if (rotate_left)
-			rotateCamera(rotate_angle * -1.0f);
+        if (tilt_up) {
+            tiltCamera(tilt_angle);
+        } else if (tilt_down) {
+            tiltCamera(tilt_angle * -1.0f);
+        }
 
-		else if (rotate_right)
-			rotateCamera(rotate_angle);
-
-		if (tilt_up)
-			tiltCamera(tilt_angle);
-
-		else if (tilt_down)
-			tiltCamera(tilt_angle * -1.0f);
-
-		if (strafe_left)
-			strafeCamera(strafe_distance * -1.0f);
-
-		else if (strafe_right)
-			strafeCamera(strafe_distance);
+        if (strafe_left) {
+            strafeCamera(strafe_distance * -1.0f);
+        } else if (strafe_right) {
+            strafeCamera(strafe_distance);
+        }
 
 		glm::mat4 view_matrix = glm::lookAt(
 			glm::vec3(getPosition().x, getPosition().y, getPosition().z),	//position of camera
@@ -805,8 +748,7 @@ namespace jep
 		setViewMatrix(view_matrix);
 	}
 
-	void ogl_camera_flying::stepCamera(float dist)
-	{
+	void ogl_camera_flying::stepCamera(float dist) {
 		glm::vec3 camera_location = getPosition();
 		glm::vec3 camera_focus = getFocus();
 
@@ -821,8 +763,7 @@ namespace jep
 		setPosition(glm::vec3(new_location.x, new_location.y, new_location.z));
 	}
 
-	void ogl_camera_flying::elevateCamera(float dist)
-	{
+	void ogl_camera_flying::elevateCamera(float dist) {
 		glm::vec3 camera_location = getPosition();
 		glm::vec3 camera_focus = getFocus();
 
@@ -835,8 +776,7 @@ namespace jep
 		setPosition(glm::vec3(new_location.x, new_location.y, new_location.z));
 	}
 
-	void ogl_camera_flying::twistCamera(float dist)
-	{
+	void ogl_camera_flying::twistCamera(float dist) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
@@ -861,8 +801,7 @@ namespace jep
 		setPosition(glm::vec3(camera_location.x, camera_location.y, camera_location.z));
 	}
 
-	void ogl_camera_flying::rotateCamera(float degrees)
-	{
+	void ogl_camera_flying::rotateCamera(float degrees) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
@@ -871,22 +810,22 @@ namespace jep
 
 		camera_rotation += degrees;
 
-		if (camera_rotation > 360.f)
-			camera_rotation -= 360.0f;
+        if (camera_rotation > 360.f) {
+            camera_rotation -= 360.0f;
+        }
 
-		if (camera_rotation < 0.0f)
-			camera_rotation += 360.0f;
+        if (camera_rotation < 0.0f) {
+            camera_rotation += 360.0f;
+        }
 
 		setFocus(glm::vec3(camera_focus.x, camera_focus.y, camera_focus.z));
 	}
 
-	void ogl_camera_flying::tiltCamera(float degrees)
-	{
+	void ogl_camera_flying::tiltCamera(float degrees) {
 		glm::vec4 camera_location = glm::vec4(getPosition(), 1.0f);
 		glm::vec4 camera_focus = glm::vec4(getFocus(), 1.0f);
 
-		if (abs(camera_tilt + degrees) < 90.0f)
-		{
+		if (abs(camera_tilt + degrees) < 90.0f) {
 			glm::vec4 axis_point = rotatePointAroundOrigin(
 				camera_focus, camera_location, -90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 			glm::vec3 axis(axis_point.x - camera_location.x, 0.0f, axis_point.z - camera_location.z);
@@ -900,202 +839,154 @@ namespace jep
 		}
 	}
 
-	void ogl_camera_flying::move(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_flying::move(signed short n) {
+		if (n == 0) {
 			move_forward = false;
 			move_backward = false;
 			return;
-		}
-
-		else if (n < 0)
-			move_forward = false;
-
-		else if (n > 0)
-			move_forward = true;
+		} else if (n < 0) {
+            move_forward = false;
+        } else if (n > 0) {
+            move_forward = true;
+        }
 
 		move_backward = !move_forward;
 
-		if (print_movement)
-			cout << "move: " << n << endl;
+        if (print_movement) {
+            cout << "move: " << n << endl;
+        }
 	}
 
-	void ogl_camera_flying::altitude(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_flying::altitude(signed short n) {
+		if (n == 0) {
 			altitude_up = false;
 			altitude_down = false;
 			return;
-		}
-		else if (n < 0)
-		{
+		} else if (n < 0) {
 			altitude_up = false;
-		}
-		else
-		{
+		} else {
 			altitude_up = true;
 		}
 
 		altitude_down = !altitude_up;
 
-		if (print_movement)
-			cout << "move: " << n << endl;
+        if (print_movement) {
+            cout << "move: " << n << endl;
+        }
 	}
 
-	void ogl_camera_flying::rotate(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_flying::rotate(signed short n) {
+		if (n == 0) {
 			rotate_left = false;
 			rotate_right = false;
 			return;
-		}
-
-		else if (n < 0)
-			rotate_left = true;
-
-		else if (n > 0)
-			rotate_left = false;
+		} else if (n < 0) {
+            rotate_left = true;
+        } else if (n > 0) {
+            rotate_left = false;
+        }
 
 		rotate_right = !rotate_left;
 
-		if (print_movement)
-			cout << "rotate: " << n << endl;
+        if (print_movement) {
+            cout << "rotate: " << n << endl;
+        }
 	}
 
-	void ogl_camera_flying::tilt(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_flying::tilt(signed short n) {
+		if (n == 0) {
 			tilt_up = false;
 			tilt_down = false;
 			return;
-		}
-
-		else if (n < 0)
-			tilt_up = false;
-
-		else if (n > 0)
-			tilt_up = true;
+		} else if (n < 0) {
+            tilt_up = false;
+        } else if (n > 0) {
+            tilt_up = true;
+        }
 
 		tilt_down = !tilt_up;
 
-		if (print_movement)
-			cout << "tilt: " << n << endl;
+        if (print_movement) {
+            cout << "tilt: " << n << endl;
+        }
 	}
 
-	void ogl_camera_flying::strafe(signed short n)
-	{
-		if (n == 0)
-		{
+	void ogl_camera_flying::strafe(signed short n) {
+		if (n == 0) {
 			strafe_left = false;
 			strafe_right = false;
 			return;
-		}
-
-		else if (n < 0)
-			strafe_left = true;
-
-		else if (n > 0)
-			strafe_left = false;
+		} else if (n < 0) {
+            strafe_left = true;
+        } else if (n > 0) {
+            strafe_left = false;
+        }
 
 		strafe_right = !strafe_left;
 
-		if (print_movement)
-			cout << "strafe: " << n << endl;
+        if (print_movement) {
+            cout << "strafe: " << n << endl;
+        }
 	}
 
-	void ogl_camera_flying::updateCamera()
-	{
-		if (getKeys()->checkPress(GLFW_KEY_A) || getKeys()->checkPress(GLFW_KEY_D))
-		{
+	void ogl_camera_flying::updateCamera() {
+		if (getKeys()->checkPress(GLFW_KEY_A) || getKeys()->checkPress(GLFW_KEY_D)) {
 			getKeys()->checkPress(GLFW_KEY_D) ? strafe(1) : strafe(-1);
-		}
-		else
-		{
+		} else {
 			strafe(0);
 		}
 
-		if (getKeys()->checkPress(GLFW_KEY_S) || getKeys()->checkPress(GLFW_KEY_W))
-		{
-			if (getKeys()->checkShiftHold())
-			{
+		if (getKeys()->checkPress(GLFW_KEY_S) || getKeys()->checkPress(GLFW_KEY_W)) {
+			if (getKeys()->checkShiftHold()) {
 				getKeys()->checkPress(GLFW_KEY_S) ? altitude(-1) : altitude(1);
-			}
-			else
-			{
+			} else {
 				getKeys()->checkPress(GLFW_KEY_S) ? move(-1) : move(1);
 			}
-		}
-		else
-		{
+		} else {
 			move(0);
 			altitude(0);
 		}
 
-		if (getKeys()->checkPress(GLFW_KEY_UP) || getKeys()->checkPress(GLFW_KEY_DOWN))
-		{
+		if (getKeys()->checkPress(GLFW_KEY_UP) || getKeys()->checkPress(GLFW_KEY_DOWN)) {
 			getKeys()->checkPress(GLFW_KEY_UP) ? tilt(1) : tilt(-1);
-		}
-		else
-		{
+		} else {
 			tilt(0);
 		}
 
-		if (getKeys()->checkPress(GLFW_KEY_LEFT) || getKeys()->checkPress(GLFW_KEY_RIGHT))
-		{
+		if (getKeys()->checkPress(GLFW_KEY_LEFT) || getKeys()->checkPress(GLFW_KEY_RIGHT)) {
 			getKeys()->checkPress(GLFW_KEY_LEFT) ? rotate(1) : rotate(-1);
-		}
-		else
-		{
+		} else {
 			rotate(0);
 		}
 
 
-		if (move_forward)
-		{
+		if (move_forward) {
 			stepCamera(step_distance);
-		}
-		else if (move_backward)
-		{
+		} else if (move_backward) {
 			stepCamera(step_distance * -1.0f);
 		}
 
-		if (altitude_up)
-		{
+        if (altitude_up) {
 			elevateCamera(step_distance);
-		}
-		else if (altitude_down)
-		{
+		} else if (altitude_down) {
 			elevateCamera(step_distance * -1.0f);
 		}
 
-		if (rotate_left)
-		{
+		if (rotate_left) {
 			rotateCamera(rotate_angle * -1.0f);
-		}
-		else if (rotate_right)
-		{
+		} else if (rotate_right) {
 			rotateCamera(rotate_angle);
 		}
 
-		if (tilt_up)
-		{
+		if (tilt_up) {
 			tiltCamera(tilt_angle);
-		}
-		else if (tilt_down)
-		{
+		} else if (tilt_down) {
 			tiltCamera(tilt_angle * -1.0f);
 		}
 
-		if (strafe_left)
-		{
+		if (strafe_left) {
 			twistCamera(strafe_distance * -1.0f);
-		}
-		else if (strafe_right)
-		{
+		} else if (strafe_right) {
 			twistCamera(strafe_distance);
 		}
 
@@ -1107,10 +998,10 @@ namespace jep
 		setViewMatrix(view_matrix);
 	}
 
-	bool key_handler::checkPress(int key, bool include_held)
-	{
-		if (keys.find(key) == keys.end())
-			keys[key] = GLFW_RELEASE;
+	bool key_handler::checkPress(int key, bool include_held) {
+        if (keys.find(key) == keys.end()) {
+            keys[key] = GLFW_RELEASE;
+        }
 
 		int state = glfwGetKey(context->getWindow(), key);
 
@@ -1119,17 +1010,13 @@ namespace jep
 
 		keys[key] = state;
 
-		switch (include_held)
-		{
-		case true: return (state == GLFW_PRESS);
-		case false: return (state == GLFW_PRESS && first_press);
-		}
+        return include_held ? state == GLFW_PRESS : state == GLFW_PRESS && first_press;
 	}
 
-	bool key_handler::checkMouse(int key, bool include_held)
-	{
-		if (mouse.find(key) == mouse.end())
-			mouse[key] = GLFW_RELEASE;
+	bool key_handler::checkMouse(int key, bool include_held) {
+        if (mouse.find(key) == mouse.end()) {
+            mouse[key] = GLFW_RELEASE;
+        }
 
 		int state = glfwGetMouseButton(context->getWindow(), key);
 
@@ -1138,23 +1025,18 @@ namespace jep
 
 		mouse[key] = state;
 
-		switch (include_held)
-		{
-		case true: return (state == GLFW_PRESS);
-		case false: return (state == GLFW_PRESS && first_press);
-		}
+        return include_held ? state == GLFW_PRESS : state == GLFW_PRESS && first_press;
 	}
 
-	void key_handler::updateCursorPosition()
-	{
+	void key_handler::updateCursorPosition() {
 		//glfw considers upper-left corner to be 0,0, and lower-right corner to be window width, window height
 		//openGL considers upper-left to be -1.0, 1.0 and lower-right corner to be 1.0, -1.0
 		double x_position;
 		double y_position;
 		glfwGetCursorPos(context->getWindow(), &x_position, &y_position);
 
-		double window_height = (double)context->getWindowHeight();
-		double window_width = (double)context->getWindowWidth();
+		double window_height = context->getWindowHeight();
+		double window_width = context->getWindowWidth();
 
 		double center_y = window_height / 2.0f;
 		double center_x = window_width / 2.0f;
@@ -1171,8 +1053,7 @@ namespace jep
 		const std::vector<float> &vertex_data,
 		int v_data_size,
 		int vt_data_size,
-		int vn_data_size)
-	{
+		int vn_data_size) {
 		index_count = indices.size();
 		vertex_count = vertex_data.size();
 		mesh_material = material;
@@ -1204,7 +1085,7 @@ namespace jep
 		//TODO revise so all data exists in one buffer
 		//position
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, v_data_size, GL_FLOAT, GL_FALSE, stride, (void*)0);
+		glVertexAttribPointer(0, v_data_size, GL_FLOAT, GL_FALSE, stride, (void*)nullptr); // TODO this was 0 instead of nullptr
 
 		//uv
 		glEnableVertexAttribArray(1);
@@ -1234,19 +1115,17 @@ namespace jep
 	}
 
 	//TODO let texture handler delete all textures associated
-	ogl_data::~ogl_data()
-	{
+	ogl_data::~ogl_data() {
 		glDeleteVertexArrays(1, VAO.get());
 		glDeleteBuffers(1, VBO.get());
 
-		if (element_array_enabled)
-			glDeleteBuffers(1, IND.get());
+        if (element_array_enabled) {
+            glDeleteBuffers(1, IND.get());
+        }
 	}
 
-	void ogl_model::draw(std::shared_ptr<ogl_camera> &camera)
-	{
-		for (auto mesh : model_data)
-		{
+	void ogl_model::draw(std::shared_ptr<ogl_camera> &camera) {
+		for (const auto& mesh : model_data) {
 			glBindVertexArray(*(mesh->getVAO()));
 			glEnableVertexAttribArray(0);
 			glEnableVertexAttribArray(1);
@@ -1274,29 +1153,9 @@ namespace jep
 		}
 	}
 
-	/*
-	void ogl_model_animated::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera)
-	{
-		int start_location_offset = animation_indices.at(current_animation).at(current_frame);
-		//TODO find way to identify how many frames/vertices belong to each animation
-		int frame_vertex_count = 0;
-		glBindVertexArray(*(getOGLData()->getVAO()));
-		//deprecated with material refactoring
-		//glBindTexture(GL_TEXTURE_2D, *(getOGLData()->getDIF()));
-
-		camera->setMVP(context, getModelMatrix(), NORMAL);
-		glDrawArrays(GL_TRIANGLES, start_location_offset, frame_vertex_count);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		glBindVertexArray(0);
-	}
-	*/
-
 	static_text::static_text(string s, text_justification tj, const std::shared_ptr<text_handler> &text,
 		const glm::vec4 &color, GLchar* text_enable_ID, GLchar* text_color_ID,
-		const glm::vec2 &on_screen_position, float scale, float box_x, float box_y)
-	{
+		const glm::vec2 &on_screen_position, float scale, float box_x, float box_y) {
 		raw_text = s;
 		text_shader_ID = text_enable_ID;
 		text_color_shader_ID = text_color_ID;
@@ -1312,16 +1171,14 @@ namespace jep
 		//TODO add code for setting text array
 	};
 
-	void static_text::setPageData()
-	{
+	void static_text::setPageData() {
 		return;
 	}
 
 	//TODO for draw functions, allow passing of a map of shader ID's with their corresponding values
 	//templatize if possible
 	void static_text::draw(const std::shared_ptr<ogl_camera> &camera,
-		const std::shared_ptr<ogl_context> &context)
-	{
+		const std::shared_ptr<ogl_context> &context) {
 		//TODO try moving all of the "set" funcitons outside of the loop
 		//enable text rendering in shader
 		glUniform1i(context->getShaderGLint(text_shader_ID), true);
@@ -1331,8 +1188,7 @@ namespace jep
 			text_color.x, text_color.y, text_color.z, text_color.w);
 
 		int counter = 0;
-		for (const auto &i : character_array)
-		{
+		for (const auto &i : character_array) {
 			glBindVertexArray(*(i.first->getVAO()));
 			//deprecated with material refactoring
 			//glBindTexture(GL_TEXTURE_2D, *(i.first->getDIF()));
@@ -1355,8 +1211,7 @@ namespace jep
 	}
 
 	void static_text::draw(const std::shared_ptr<ogl_camera> &camera,
-		const std::shared_ptr<ogl_context> &context, const glm::mat4 &position_matrix_override)
-	{
+		const std::shared_ptr<ogl_context> &context, const glm::mat4 &position_matrix_override) {
 		//TODO try moving all of the "set" funcitons outside of the loop
 		//enable text rendering in shader
 		glUniform1i(context->getShaderGLint(text_shader_ID), true);
@@ -1366,8 +1221,7 @@ namespace jep
 			text_color.x, text_color.y, text_color.z, text_color.w);
 
 		int counter = 0;
-		for (const auto &i : character_array)
-		{
+		for (const auto &i : character_array) {
 			glBindVertexArray(*(i.first->getVAO()));
 			//deprecated with material refactoring
 			//glBindTexture(GL_TEXTURE_2D, *(i.first->getDIF()));
@@ -1389,30 +1243,26 @@ namespace jep
 		glUniform1i(context->getShaderGLint(text_shader_ID), false);
 	}
 
-	glm::vec2 static_text::getLowerRight() const
-	{
+	glm::vec2 static_text::getLowerRight() const {
 		float x_position(x_bound ? upper_left.x + box_width : lower_right.x);
 		float y_position(y_bound ? upper_left.y - box_height : lower_right.y);
 		return glm::vec2(x_position, y_position);
 	}
 
-	glm::vec2 static_text::getLowerLeft() const
-	{
+	glm::vec2 static_text::getLowerLeft() const {
 		float x_position(upper_left.x);
 		float y_position(y_bound ? upper_left.y - box_height : lower_right.y);
 		return glm::vec2(x_position, y_position);
 	}
 
-	glm::vec2 static_text::getUpperRight() const
-	{
+	glm::vec2 static_text::getUpperRight() const {
 		float x_position(x_bound ? upper_left.x + box_width : lower_right.x);
 		float y_position(upper_left.y);
 		return glm::vec2(x_position, y_position);
 	}
 
 	text_character::text_character(char character, const std::shared_ptr<text_handler> &text, const glm::vec2 &anchor_point,
-		text_justification tj, const glm::vec2 &screen_dimensions, bool italics)
-	{
+		text_justification tj, const glm::vec2 &screen_dimensions, bool italics) {
 		c = character;
 		dimensions = screen_dimensions;
 		position = anchor_point;
@@ -1426,19 +1276,20 @@ namespace jep
 
 		grid_index = 0;
 
-		if (c == ' ')
-			grid_index = 0;
+        if (c == ' ') {
+            grid_index = 0;
+        } else {
+            grid_index = (int) c - 32;
+        }
 
-		else grid_index = (int)c - 32;
-
-		if (italics)
-			grid_index += 96;
+        if (italics) {
+            grid_index += 96;
+        }
 
 		setPositionMatrix();
 	}
 
-	void text_character::setPositionMatrix()
-	{
+	void text_character::setPositionMatrix() {
 		float step = 1.0f / 16.0f;
 		float actual_x = (float)(grid_index % 16) * step + (0.5f * step);
 		float actual_y = (float)(grid_index / 16) * step + (0.5f * step);
@@ -1453,47 +1304,45 @@ namespace jep
 
 		glm::mat4 justification_matrix;
 
-		switch (justification)
-		{
-		case UR:
-			lower_left = position - dimensions;
-			upper_left = position + glm::vec2(dimensions.x * -1.0f, 0.0f);
-			upper_right = position;
-			lower_right = position + glm::vec2(0.0f, dimensions.y * -1.0f);
-			justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * -0.5f, dimensions.y * -0.5f, 0.0f));
-			break;
-		case LR:
-			lower_left = position + glm::vec2(dimensions.x * -1.0f, 0.0f);
-			upper_left = position + glm::vec2(dimensions.x * -1.0f, dimensions.y * 1.0f);
-			upper_right = position + glm::vec2(0.0f, dimensions.y * 1.0f);
-			lower_right = position;
-			justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * -0.5f, dimensions.y * 0.5f, 0.0f));
-			break;
-		case LL:
-			lower_left = position;
-			upper_left = position + glm::vec2(0.0f, dimensions.y * 1.0f);
-			upper_right = position + dimensions;
-			lower_right = position + glm::vec2(dimensions.x * 1.0f, 0.0f);
-			justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * 0.5f, dimensions.y * 0.5f, 0.0f));
-			break;
-		case UL:
-			lower_left = position + glm::vec2(0.0f, dimensions.y * -1.0f);
-			upper_left = position;
-			upper_right = position + glm::vec2(dimensions.x * 1.0f, 0.0f);
-			lower_right = position + glm::vec2(dimensions.x * 1.0f, dimensions.y * -1.0f);
-			justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * 0.5f, dimensions.y * -0.5f, 0.0f));
-			break;
+		switch (justification) {
+            case UR:
+                lower_left = position - dimensions;
+                upper_left = position + glm::vec2(dimensions.x * -1.0f, 0.0f);
+                upper_right = position;
+                lower_right = position + glm::vec2(0.0f, dimensions.y * -1.0f);
+                justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * -0.5f, dimensions.y * -0.5f, 0.0f));
+                break;
+            case LR:
+                lower_left = position + glm::vec2(dimensions.x * -1.0f, 0.0f);
+                upper_left = position + glm::vec2(dimensions.x * -1.0f, dimensions.y * 1.0f);
+                upper_right = position + glm::vec2(0.0f, dimensions.y * 1.0f);
+                lower_right = position;
+                justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * -0.5f, dimensions.y * 0.5f, 0.0f));
+                break;
+            case LL:
+                lower_left = position;
+                upper_left = position + glm::vec2(0.0f, dimensions.y * 1.0f);
+                upper_right = position + dimensions;
+                lower_right = position + glm::vec2(dimensions.x * 1.0f, 0.0f);
+                justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * 0.5f, dimensions.y * 0.5f, 0.0f));
+                break;
+            case UL:
+                lower_left = position + glm::vec2(0.0f, dimensions.y * -1.0f);
+                upper_left = position;
+                upper_right = position + glm::vec2(dimensions.x * 1.0f, 0.0f);
+                lower_right = position + glm::vec2(dimensions.x * 1.0f, dimensions.y * -1.0f);
+                justification_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(dimensions.x * 0.5f, dimensions.y * -0.5f, 0.0f));
+                break;
 
-		default:
-			justification_matrix = glm::mat4(0.0f);
-			break;
+            default:
+                justification_matrix = glm::mat4(0.0f);
+                break;
 		}
 
 		position_matrix = justification_matrix * placement_matrix * scale_matrix * initial_translation;
 	}
 
-	void text_character::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera)
-	{
+	void text_character::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera) {
 		glBindVertexArray(*(VAO));
 		glBindTexture(GL_TEXTURE_2D, *(TEX));
 
@@ -1532,8 +1381,7 @@ namespace jep
 		std::vector<float> vec_vertices;
 		vec_vertices.reserve(289 * 8);
 
-		for (int i = 0; i < 289; i++)
-		{
+		for (int i = 0; i < 289; i++) {
             std::vector<float> vertex = {
 				(i % 17) * step, (i / 17) * step, 0.0f,				//x, y, z
 				(i % 17) * step, (i / 17) * step,					//u, v
@@ -1546,10 +1394,8 @@ namespace jep
         std::vector<unsigned short> indices;
 		indices.reserve(271 * 6);
 
-		for (int i = 0; i < 271; i++)
-		{
-			if ((i + 1) % 17 != 0)
-			{
+		for (int i = 0; i < 271; i++) {
+			if ((i + 1) % 17 != 0) {
 				indices.push_back(i);
 				indices.push_back(i + 17);
 				indices.push_back(i + 18);
@@ -1577,26 +1423,24 @@ namespace jep
 		*/
 	}
 
-	text_handler::~text_handler()
-	{ 
-		glDeleteTextures(1, default_TEX.get()); 
+	text_handler::~text_handler() {
+		glDeleteTextures(1, default_TEX.get());
 
-		for (auto &tex : font_map)
-			glDeleteTextures(1, tex.second.get());
+        for (auto &tex: font_map) {
+            glDeleteTextures(1, tex.second.get());
+        }
 	}
 
-	void text_handler::addFont(const string &font_name, const char* text_image_path)
-	{
-		if (font_map.find(font_name) == font_map.end())
-			font_map[font_name] = std::shared_ptr<GLuint>(new GLuint);
+	void text_handler::addFont(const string &font_name, const char* text_image_path) {
+        if (font_map.find(font_name) == font_map.end()) {
+            font_map[font_name] = std::shared_ptr<GLuint>(new GLuint);
+        }
 
 		jep::loadTexture(text_image_path, *font_map.at(font_name));
 	}
 
-	void text_handler::switchFont(const string &font_name)
-	{
-		if (font_map.find(font_name) != font_map.end())
-		{
+	void text_handler::switchFont(const string &font_name) {
+		if (font_map.find(font_name) != font_map.end()) {
 			//deprecated with material reformatting
 			//opengl_data->overrideTEX(font_map.at(font_name));
 
@@ -1605,34 +1449,30 @@ namespace jep
 		}
 	}
 
-	texture_handler::~texture_handler()
-	{
-		for (auto i : map_gluints)
-		{
-			if (i.second != nullptr)
-				glDeleteTextures(1, i.second.get());
+	texture_handler::~texture_handler() {
+		for (auto i : map_gluints) {
+            if (i.second != nullptr) {
+                glDeleteTextures(1, i.second.get());
+            }
 		}		
 	}
 
-	std::shared_ptr<GLuint> texture_handler::addTextureByFilename(const string &texture_handle, const string &file_name)
-	{
+	std::shared_ptr<GLuint> texture_handler::addTextureByFilename(const string &texture_handle, const string &file_name) {
 		string full_path = default_file_path + "\\" + file_name;
 		return addTextureByPath(texture_handle, full_path);
 	}
 
-	std::shared_ptr<GLuint> texture_handler::addTextureByPath(const string &texture_handle, const string &file_path)
-	{
-		if (texture_handle.size() == 0 || file_path.size() == 0)
-			return nullptr;
+	std::shared_ptr<GLuint> texture_handler::addTextureByPath(const string &texture_handle, const string &file_path) {
+        if (texture_handle.size() == 0 || file_path.size() == 0) {
+            return nullptr;
+        }
 
-		if (map_paths.find(file_path) != map_paths.end())
-		{
+		if (map_paths.find(file_path) != map_paths.end()) {
 			cout << "A texture with the following file path already exists in the texture handler: " << file_path << endl;
 			return nullptr;
 		}
 		
-		if (map_gluints.find(texture_handle) != map_gluints.end())
-		{
+		if (map_gluints.find(texture_handle) != map_gluints.end()) {
 			cout << "A texture with the following map handle already exists in the texture handler: " << texture_handle << endl;
 			return nullptr;
 		}
@@ -1647,29 +1487,23 @@ namespace jep
 		return map_gluints.at(texture_handle);
 	}
 
-	std::shared_ptr<GLuint> texture_handler::getTexture(const string &name)
-	{
-		if (map_gluints.find(name) == map_gluints.end())
-		{
+	std::shared_ptr<GLuint> texture_handler::getTexture(const string &name) {
+		if (map_gluints.find(name) == map_gluints.end()) {
 			cout << "\"" << name << "\" could not be found by the texture handler" << endl;
 			return nullptr;
-		}
-
-		else if (!map_gluints.at(name).get())
-		{
+		} else if (!map_gluints.at(name).get()) {
 			string full_path;
 
-			for (const auto path_pair : map_paths)
-			{
-				if (path_pair.second == name)
-				{
+			for (const auto path_pair : map_paths) {
+				if (path_pair.second == name) {
 					full_path = path_pair.first;
 					break;
 				}
 			}
 
-			if (full_path.size() == 0)
-				return nullptr;
+            if (full_path.size() == 0) {
+                return nullptr;
+            }
 			
 			jep::loadTexture(full_path.c_str(), *map_gluints.at(name));
 		}
@@ -1677,33 +1511,27 @@ namespace jep
 		return map_gluints.at(name);
 	}
 
-	void texture_handler::addTextureUnloaded(const string &file_name, const string &file_path)
-	{
+	void texture_handler::addTextureUnloaded(const string &file_name, const string &file_path) {
 		map_gluints.insert(std::pair<string, std::shared_ptr<GLuint> >(file_name, nullptr));
 		map_paths.insert(std::pair<string, string>(file_path, file_name));
 	}
 
-	void texture_handler::addTextureUnloaded(const string &file_name)
-	{
+	void texture_handler::addTextureUnloaded(const string &file_name) {
 		string full_path = default_file_path + "\\" + file_name;
 		map_gluints.insert(std::pair<string, std::shared_ptr<GLuint> >(file_name, nullptr));
 		map_paths.insert(std::pair<string, string>(full_path, file_name));
 	}
 
-	void texture_handler::unloadTexture(const string &name)
-	{
-		if (map_gluints.find(name) == map_gluints.end())
-			cout << name << " was not added to the texture handler" << endl;
-
-		else
-		{
-			glDeleteTextures(1, map_gluints.at(name).get());
-			map_gluints.at(name) = nullptr;
-		}
+	void texture_handler::unloadTexture(const string &name) {
+        if (map_gluints.find(name) == map_gluints.end()) {
+            cout << name << " was not added to the texture handler" << endl;
+        } else {
+            glDeleteTextures(1, map_gluints.at(name).get());
+            map_gluints.at(name) = nullptr;
+        }
 	}
 
-	material_data::material_data()
-	{
+	material_data::material_data() {
 		initializeTextureData();
 		context = nullptr;
 		material_name = "";
@@ -1711,8 +1539,7 @@ namespace jep
 
 	material_data::material_data(const string &name,
 		const std::shared_ptr<ogl_context> &existing_context,
-		std::shared_ptr<texture_handler> &existing_textures)
-	{
+		std::shared_ptr<texture_handler> &existing_textures) {
 		initializeTextureData();
 
 		context = existing_context;
@@ -1728,8 +1555,7 @@ namespace jep
 		const string &bump_filename,
 		const string &normal_filename,
 		const string &transparency_filename,
-		const string &specular_filename)
-	{
+		const string &specular_filename) {
 		initializeTextureData();
 
 		context = existing_context;
@@ -1742,8 +1568,7 @@ namespace jep
 		setTextureData("transparency", transparency_filename);
 		setTextureData("specular", specular_filename);
 
-		if (texture_gluints.at("diffuse").get())
-		{
+		if (texture_gluints.at("diffuse").get()) {
 			GLuint diffuse_id = context->getShaderGLint("diffuseMap");
 
 			glActiveTexture(GL_TEXTURE0);
@@ -1751,8 +1576,7 @@ namespace jep
 			glUniform1i(diffuse_id, 0);
 		}
 
-		if (texture_gluints.at("bump").get())
-		{
+		if (texture_gluints.at("bump").get()) {
 			GLuint bump_id = context->getShaderGLint("bumpMap");
 
 			glActiveTexture(GL_TEXTURE1);
@@ -1760,8 +1584,7 @@ namespace jep
 			glUniform1i(bump_id, 1);
 		}
 
-		if (texture_gluints.at("normal").get())
-		{
+		if (texture_gluints.at("normal").get()) {
 			GLuint normal_id = context->getShaderGLint("normalMap");
 
 			glActiveTexture(GL_TEXTURE2);
@@ -1769,8 +1592,7 @@ namespace jep
 			glUniform1i(normal_id, 2);
 		}
 
-		if (texture_gluints.at("transparency").get())
-		{
+		if (texture_gluints.at("transparency").get()) {
 			GLuint transparency_id = context->getShaderGLint("transparencyMap");
 
 			glActiveTexture(GL_TEXTURE3);
@@ -1778,8 +1600,7 @@ namespace jep
 			glUniform1i(transparency_id, 3);
 		}
 
-		if (texture_gluints.at("specular").get())
-		{
+		if (texture_gluints.at("specular").get()) {
 			GLuint specular_id = context->getShaderGLint("specularMap");
 
 			glActiveTexture(GL_TEXTURE4);
@@ -1788,108 +1609,99 @@ namespace jep
 		}
 	}
 
-	void material_data::initializeTextureData()
-	{
+	void material_data::initializeTextureData() {
         std::vector<string> map_handles = { "diffuse", "bump", "normal", "transparency", "specular" };
 
-		for (std::vector<string>::const_iterator handle_it = map_handles.cbegin(); handle_it != map_handles.cend(); handle_it++)
-		{
-			map_statuses.insert(pair<string, bool>(*handle_it, false));
-			texture_gluints.insert(pair<string, std::shared_ptr<GLuint> >(*handle_it, nullptr));
-			texture_names.insert(pair<string, string>(*handle_it, ""));
+		for (const auto & map_handle : map_handles) {
+			map_statuses.insert(pair<string, bool>(map_handle, false));
+			texture_gluints.insert(pair<string, std::shared_ptr<GLuint> >(map_handle, nullptr));
+			texture_names.insert(pair<string, string>(map_handle, ""));
 		}
 	}
 
-	void material_data::setTextureData(const string &map_handle, const string &texture_handle)
-	{
-		if (map_statuses.find(map_handle) == map_statuses.end())
-			return;
+	void material_data::setTextureData(const string &map_handle, const string &texture_handle) {
+        if (map_statuses.find(map_handle) == map_statuses.end()) {
+            return;
+        }
 
 		std::shared_ptr<GLuint> texture_pointer = textures->getTexture(texture_handle);
 
-		if (texture_pointer.get())
-		{
+		if (texture_pointer.get()) {
 			map_statuses.at(map_handle) = true;
 			texture_gluints.at(map_handle) = texture_pointer;
 			texture_names.at(map_handle) = texture_handle;
 		}
 	}
 
-	string material_data::getTextureName(const string &map_handle) const
-	{
-		if (texture_names.find(map_handle) != texture_names.end())
-			return texture_names.at(map_handle);
-
-		else return "";
+	string material_data::getTextureName(const string &map_handle) const {
+        if (texture_names.find(map_handle) != texture_names.end()) {
+            return texture_names.at(map_handle);
+        } else {
+            return "";
+        }
 	}
 
-	bool material_data::getMapStatus(const string &map_handle) const
-	{
-		if (map_statuses.find(map_handle) != map_statuses.end())
-			return map_statuses.at(map_handle);
-
-		else return false;
+	bool material_data::getMapStatus(const string &map_handle) const{
+        if (map_statuses.find(map_handle) != map_statuses.end()) {
+            return map_statuses.at(map_handle);
+        } else {
+            return false;
+        }
 	}
 
-	std::shared_ptr<GLuint> material_data::getGluint(const string &map_handle) const
-	{
-		if (texture_gluints.find(map_handle) != texture_gluints.end())
-			return texture_gluints.at(map_handle);
-
-		else return nullptr;
+	std::shared_ptr<GLuint> material_data::getGluint(const string &map_handle) const {
+        if (texture_gluints.find(map_handle) != texture_gluints.end()) {
+            return texture_gluints.at(map_handle);
+        } else {
+            return nullptr;
+        }
 	}
 
-	void material_data::setShader() const
-	{
-		if (GLint(map_statuses.at("diffuse") && texture_gluints.at("diffuse").get()))
-		{
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("diffuse")));
-			glUniform1i(context->getShaderGLint("diffuseMap"), 0);
-			glUniform1i(context->getShaderGLint("enable_diffuse_map"), 1);
-		}
+	void material_data::setShader() const {
+        if (GLint(map_statuses.at("diffuse") && texture_gluints.at("diffuse").get())) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("diffuse")));
+            glUniform1i(context->getShaderGLint("diffuseMap"), 0);
+            glUniform1i(context->getShaderGLint("enable_diffuse_map"), 1);
+        } else {
+            glUniform1i(context->getShaderGLint("enable_diffuse_map"), 0);
+        }
 
-		else glUniform1i(context->getShaderGLint("enable_diffuse_map"), 0);
+        if (GLint(map_statuses.at("bump") && texture_gluints.at("bump").get())) {
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("bump")));
+            glUniform1i(context->getShaderGLint("bumpMap"), 1);
+            glUniform1i(context->getShaderGLint("enable_bump_map"), 1);
+        } else {
+            glUniform1i(context->getShaderGLint("enable_bump_map"), 0);
+        }
 
-		if (GLint(map_statuses.at("bump") && texture_gluints.at("bump").get()))
-		{
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("bump")));
-			glUniform1i(context->getShaderGLint("bumpMap"), 1);
-			glUniform1i(context->getShaderGLint("enable_bump_map"), 1);
-		}
+        if (GLint(map_statuses.at("normal") && texture_gluints.at("normal").get())) {
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("normal")));
+            glUniform1i(context->getShaderGLint("normalMap"), 2);
+            glUniform1i(context->getShaderGLint("enable_normal_map"), 1);
+        } else {
+            glUniform1i(context->getShaderGLint("enable_normal_map"), 0);
+        }
 
-		else glUniform1i(context->getShaderGLint("enable_bump_map"), 0);
+        if (GLint(map_statuses.at("transparency") && texture_gluints.at("transparency").get())) {
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("transparency")));
+            glUniform1i(context->getShaderGLint("transparencyMap"), 3);
+            glUniform1i(context->getShaderGLint("enable_transparency_map"), 1);
+        } else {
+            glUniform1i(context->getShaderGLint("enable_transparency_map"), 0);
+        }
 
-		if (GLint(map_statuses.at("normal") && texture_gluints.at("normal").get()))
-		{
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("normal")));
-			glUniform1i(context->getShaderGLint("normalMap"), 2);
-			glUniform1i(context->getShaderGLint("enable_normal_map"), 1);
-		}
-
-		else glUniform1i(context->getShaderGLint("enable_normal_map"), 0);
-
-		if (GLint(map_statuses.at("transparency") && texture_gluints.at("transparency").get()))
-		{
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("transparency")));
-			glUniform1i(context->getShaderGLint("transparencyMap"), 3);
-			glUniform1i(context->getShaderGLint("enable_transparency_map"), 1);
-		}
-
-		else glUniform1i(context->getShaderGLint("enable_transparency_map"), 0);
-
-		if (GLint(map_statuses.at("specular") && texture_gluints.at("specular").get()))
-		{
-			glActiveTexture(GL_TEXTURE4);
-			glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("specular")));
-			glUniform1i(context->getShaderGLint("specularMap"), 4);
-			glUniform1i(context->getShaderGLint("enable_specular_map"), 1);
-		}
-
-		else glUniform1i(context->getShaderGLint("enable_specular_map"), 0);
+        if (GLint(map_statuses.at("specular") && texture_gluints.at("specular").get())) {
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, *(texture_gluints.at("specular")));
+            glUniform1i(context->getShaderGLint("specularMap"), 4);
+            glUniform1i(context->getShaderGLint("enable_specular_map"), 1);
+        } else {
+            glUniform1i(context->getShaderGLint("enable_specular_map"), 0);
+        }
 
 		glUniform1f(context->getShaderGLint("bump_value"), bump_value);
 		glUniform1i(context->getShaderGLint("specular_dampening"), specular_dampening);
@@ -1901,11 +1713,11 @@ namespace jep
 	}
 
 	bool material_data::overrideMap(const string &map_handle, const std::shared_ptr<GLuint> &new_gluint) {
-		if (texture_gluints.find(map_handle) == texture_gluints.end())
-			return false;
+        if (texture_gluints.find(map_handle) == texture_gluints.end()) {
+            return false;
+        }
 
-		if (*(texture_gluints.find(map_handle))->second.get())
-		{
+		if (*(texture_gluints.find(map_handle))->second) {
 			// let texture handler keep track of maps that are no longer in use, call to it to subrtract counter for this texture
 		}
 
@@ -1914,8 +1726,7 @@ namespace jep
 		return true;
 	}
 
-	line::line(glm::vec4 first, glm::vec4 second, glm::vec4 c)
-	{
+	line::line(glm::vec4 first, glm::vec4 second, glm::vec4 c) {
 		p1 = first;
 		p2 = second;
 		color = c;
@@ -1941,14 +1752,12 @@ namespace jep
 
 	}
 
-	line::~line()
-	{
+	line::~line() {
 		glDeleteVertexArrays(1, VAO.get());
 		glDeleteBuffers(1, VBO.get());
 	}
 
-	void line::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera, bool absolute) const
-	{
+	void line::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera, bool absolute) const {
 		glBindVertexArray(*VAO);
 		glUniform1i(context->getShaderGLint("absolute_position"), absolute);
 
@@ -1969,8 +1778,7 @@ namespace jep
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	rectangle::rectangle(glm::vec2 centerpoint, glm::vec2 dimensions, glm::vec4 c)
-	{
+	rectangle::rectangle(glm::vec2 centerpoint, glm::vec2 dimensions, glm::vec4 c) {
 		float half_width = dimensions.x / 2.0f;
 		float half_height = dimensions.y / 2.0f;
 
@@ -2007,14 +1815,12 @@ namespace jep
 		glBindVertexArray(0);
 	}
 
-	rectangle::~rectangle()
-	{
+	rectangle::~rectangle() {
 		glDeleteVertexArrays(1, VAO.get());
 		glDeleteBuffers(1, VBO.get());
 	}
 
-	void rectangle::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera, bool absolute) const
-	{
+	void rectangle::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera, bool absolute) const {
 		glBindVertexArray(*VAO);
 		glUniform1i(context->getShaderGLint("absolute_position"), absolute);
 
@@ -2036,8 +1842,7 @@ namespace jep
 	}
 
 	void rectangle::draw(const std::shared_ptr<ogl_context> &context, const std::shared_ptr<ogl_camera> &camera,
-		const glm::mat4 &model_matrix, bool absolute) const
-	{
+		const glm::mat4 &model_matrix, bool absolute) const {
 		glBindVertexArray(*VAO);
 		glUniform1i(context->getShaderGLint("absolute_position"), absolute);
 
